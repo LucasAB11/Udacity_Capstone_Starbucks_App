@@ -5,7 +5,7 @@ import torch
 from six import BytesIO
 
 # import model from model.py, by name
-from model import BinaryClassifier
+from model import MultiClassClassifier
 
 # default content type is numpy array
 NP_CONTENT_TYPE = 'application/x-npy'
@@ -26,7 +26,7 @@ def model_fn(model_dir):
 
     # Determine the device and construct the model.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = BinaryClassifier(model_info['input_features'], model_info['hidden_dim'], model_info['output_dim'])
+    model = MultiClassClassifier(model_info['input_features'], model_info['output_dim'])
 
     # Load the store model parameters.
     model_path = os.path.join(model_dir, 'model.pth')
@@ -40,24 +40,6 @@ def model_fn(model_dir):
     return model
 
 
-# Provided input data loading
-def input_fn(serialized_input_data, content_type):
-    print('Deserializing the input data.')
-    if content_type == NP_CONTENT_TYPE:
-        stream = BytesIO(serialized_input_data)
-        return np.load(stream)
-    raise Exception('Requested unsupported ContentType in content_type: ' + content_type)
-
-# Provided output data handling
-def output_fn(prediction_output, accept):
-    print('Serializing the generated output.')
-    if accept == NP_CONTENT_TYPE:
-        stream = BytesIO()
-        np.save(stream, prediction_output)
-        return stream.getvalue(), accept
-    raise Exception('Requested unsupported ContentType in Accept: ' + accept)
-
-
 # Provided predict function
 def predict_fn(input_data, model):
     print('Predicting class labels for the input data...')
@@ -65,16 +47,17 @@ def predict_fn(input_data, model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Process input_data so that it is ready to be sent to our model.
-    data = torch.from_numpy(input_data.astype('float32'))
+    data = input_data.float()
     data = data.to(device)
 
     # Put the model into evaluation mode
     model.eval()
 
     # Compute the result of applying the model to the input data
-    # The variable `out_label` should be a rounded value, either 1 or 0
+    # The neural network has 4 output nodes. To calculate the probabilities of the labels, a softmax has to be applied
     out = model(data)
-    out_np = out.cpu().detach().numpy()
-    out_label = out_np.round()
+    out_pred_softmax = torch.log_softmax(data, dim = 1)
+    #once the softmax is applied, pick the max and return that label
+    _, out_pred_tags = torch.max(y_pred_softmax, dim = 1)
 
-    return out_label
+    return out_pred_tags.numpy().squeeze()
