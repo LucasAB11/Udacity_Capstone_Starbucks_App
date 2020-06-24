@@ -4,8 +4,8 @@ The goal of this project is to use datasets from the Starbucks Rewards App to ma
 
 Python Version: 3.8
 
-Used Libraries: \r\n
-numpy\r\n
+Used Libraries:
+numpy
 pandas
 matplotlib.pyplot
 seaborn
